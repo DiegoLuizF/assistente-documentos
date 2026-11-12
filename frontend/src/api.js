@@ -1,12 +1,12 @@
 export async function analisarDocumento(arquivo) {
   const dados = new FormData();
-  dados.append('pdf', arquivo);
+  dados.append('arquivo', arquivo);
   return chamada('/api/analise', dados);
 }
 
 export async function perguntar(arquivo, pergunta, historico) {
   const dados = new FormData();
-  dados.append('pdf', arquivo);
+  dados.append('arquivo', arquivo);
   dados.append('pergunta', pergunta);
   dados.append('historico', JSON.stringify(historico));
   return chamada('/api/pergunta', dados);
