@@ -1,3 +1,5 @@
+import { formatarNumero } from './tabelas.js';
+
 const OPERACOES = new Set(['soma', 'media', 'minimo', 'maximo', 'contar']);
 const MAX_PEDIDOS = 5;
 
@@ -9,7 +11,7 @@ function calcularSobre(linhas, coluna, operacao, filtro) {
   const valores = [];
   let contagem = 0;
 
-  for (const linha of linhas) {
+  for (const linha de linhas) {
     if (filtro && !mesmoValor(linha[filtro.coluna], filtro.valor)) continue;
     contagem++;
     if (operacao !== 'contar') {
@@ -62,7 +64,11 @@ export function executarCalculos(tabelas, pedidos) {
     for (const tabela of alvos.slice(0, 2)) {
       const valor = calcularSobre(tabela.linhas, pedido.coluna, pedido.operacao, filtro);
       const rotulo = `${tabela.nome}.${pedido.coluna} ${pedido.operacao}${filtro ? ` quando ${filtro.coluna} = ${filtro.valor}` : ''}`;
-      resultados.push(valor === null ? `${rotulo}: nenhum valor numérico encontrado.` : `${rotulo}: ${valor}`);
+      resultados.push(
+        valor === null
+          ? `${rotulo}: nenhum valor numérico encontrado.`
+          : `${rotulo}: ${formatarNumero(valor)}`
+      );
     }
   }
   return resultados;
