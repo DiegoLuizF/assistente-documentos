@@ -24,7 +24,7 @@ export function mensagensPergunta(texto, pergunta, historico) {
     {
       role: 'system',
       content:
-        'Você é um assistente que responde perguntas sobre um documento. Use EXCLUSIVAMENTE as informações do documento fornecido. Se a resposta não estiver no documento, responda exatamente: "Não encontrei essa informação no documento." Responda em português do Brasil, de forma direta.',
+        'Você responde perguntas sobre um documento. Use somente as informações do documento fornecido na última mensagem do usuário. A resposta costuma estar no documento: procure com atenção antes de concluir que não há. Apenas se a informação realmente não estiver no documento, responda exatamente: "Não encontrei essa informação no documento." Responda em português do Brasil, de forma direta.',
     },
   ];
 
