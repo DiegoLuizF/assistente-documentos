@@ -31,7 +31,7 @@ export function analisarTabela(nome, linhasBrutas) {
   );
 
   for (const linha of linhasBrutas) {
-    for (const coluna de colunas) {
+    for (const coluna of colunas) {
       const valor = linha[coluna];
       if (valor === null || valor === undefined || valor === '') continue;
       const item = info.get(coluna);
