@@ -1,6 +1,7 @@
 const TIPOS_GRAFICO = new Set(['barras', 'linhas', 'pizza']);
 const MAX_PONTOS_GRAFICO = 12;
 const MAX_GRAFICOS = 3;
+const MAX_EXPLICACAO = 300;
 
 export function extrairPrimeiroObjetoJson(texto) {
   const semCercas = texto.replace(/```[a-zA-Z]*\s*/g, '');
@@ -29,6 +30,7 @@ export function validarGraficos(graficos) {
       id: typeof g.id === 'string' && g.id.trim() ? g.id.trim() : `grafico-${indice + 1}`,
       tipo: g.tipo,
       titulo: g.titulo.trim(),
+      explicacao: typeof g.explicacao === 'string' ? g.explicacao.trim().slice(0, MAX_EXPLICACAO) : '',
       dados: g.dados
         .filter((d) => d && typeof d.rotulo === 'string' && d.rotulo.trim() && Number.isFinite(Number(d.valor)))
         .slice(0, MAX_PONTOS_GRAFICO)
@@ -68,20 +70,34 @@ export function transformarAnalise(textoBruto) {
 const OPERACOES_CALCULO = new Set(['soma', 'media', 'minimo', 'maximo', 'contar']);
 
 /**
- * Detecta se o modelo pediu cálculos em vez de responder em texto.
- * Devolve a lista de pedidos válidos ou null (resposta normal de chat).
+ * Interpreta a primeira resposta do modelo no chat, que pode ser texto puro,
+ * um pedido de cálculo ou um pedido de gráfico. Devolve null para texto puro.
  */
-export function interpretarPedidoCalculo(textoBruto) {
+export function interpretarRespostaChat(textoBruto) {
   let dados;
   try {
     dados = extrairPrimeiroObjetoJson(textoBruto);
   } catch {
     return null;
   }
-  if (!dados || !Array.isArray(dados.calcular)) return null;
+  if (!dados || typeof dados !== 'object') return null;
 
-  const pedidos = dados.calcular.filter(
-    (p) => p && OPERACOES_CALCULO.has(p.operacao) && typeof p.coluna === 'string' && p.coluna.trim()
-  );
-  return pedidos.length > 0 ? pedidos : null;
+  if (Array.isArray(dados.calcular)) {
+    const pedidos = dados.calcular.filter(
+      (p) => p && OPERACOES_CALCULO.has(p.operacao) && typeof p.coluna === 'string' && p.coluna.trim()
+    );
+    return pedidos.length > 0 ? { tipo: 'calcular', pedidos } : null;
+  }
+
+  if (typeof dados.responder === 'string' && dados.responder.trim()) {
+    const graficos = Array.isArray(dados.graficos) ? validarGraficos(dados.graficos) : [];
+    if (graficos.length > 0) {
+      return { tipo: 'graficos', resposta: dados.responder.trim(), graficos };
+    }
+    // O modelo tentou o formato mas os gráficos vieram inválidos; aproveita o
+    // texto para o JSON bruto não vazar como resposta.
+    return { tipo: 'texto', resposta: dados.responder.trim() };
+  }
+
+  return null;
 }
