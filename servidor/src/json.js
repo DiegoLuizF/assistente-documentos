@@ -1,3 +1,7 @@
+const TIPOS_GRAFICO = new Set(['barras', 'linhas', 'pizza']);
+const MAX_PONTOS_GRAFICO = 12;
+const MAX_GRAFICOS = 3;
+
 export function extrairPrimeiroObjetoJson(texto) {
   const semCercas = texto.replace(/```[a-zA-Z]*\s*/g, '');
   const inicio = semCercas.indexOf('{');
@@ -6,6 +10,31 @@ export function extrairPrimeiroObjetoJson(texto) {
     throw new Error('Nenhum objeto JSON encontrado na resposta.');
   }
   return JSON.parse(semCercas.slice(inicio, fim + 1));
+}
+
+export function validarGraficos(graficos) {
+  if (!Array.isArray(graficos)) return [];
+
+  return graficos
+    .filter(
+      (g) =>
+        g &&
+        TIPOS_GRAFICO.has(g.tipo) &&
+        typeof g.titulo === 'string' &&
+        g.titulo.trim() &&
+        Array.isArray(g.dados)
+    )
+    .slice(0, MAX_GRAFICOS)
+    .map((g, indice) => ({
+      id: typeof g.id === 'string' && g.id.trim() ? g.id.trim() : `grafico-${indice + 1}`,
+      tipo: g.tipo,
+      titulo: g.titulo.trim(),
+      dados: g.dados
+        .filter((d) => d && typeof d.rotulo === 'string' && d.rotulo.trim() && Number.isFinite(Number(d.valor)))
+        .slice(0, MAX_PONTOS_GRAFICO)
+        .map((d) => ({ rotulo: d.rotulo.trim(), valor: Number(d.valor) })),
+    }))
+    .filter((g) => g.dados.length >= 2);
 }
 
 export function validarAnalise(dados) {
@@ -21,7 +50,11 @@ export function validarAnalise(dados) {
     }));
 
   if (topicos.length === 0) return null;
-  return { resumo: dados.resumo.trim(), topicos };
+  return {
+    resumo: dados.resumo.trim(),
+    topicos,
+    graficos: validarGraficos(dados.graficos),
+  };
 }
 
 export function transformarAnalise(textoBruto) {
@@ -30,4 +63,25 @@ export function transformarAnalise(textoBruto) {
     throw new Error('A resposta do modelo não tem a estrutura esperada.');
   }
   return dados;
+}
+
+const OPERACOES_CALCULO = new Set(['soma', 'media', 'minimo', 'maximo', 'contar']);
+
+/**
+ * Detecta se o modelo pediu cálculos em vez de responder em texto.
+ * Devolve a lista de pedidos válidos ou null (resposta normal de chat).
+ */
+export function interpretarPedidoCalculo(textoBruto) {
+  let dados;
+  try {
+    dados = extrairPrimeiroObjetoJson(textoBruto);
+  } catch {
+    return null;
+  }
+  if (!dados || !Array.isArray(dados.calcular)) return null;
+
+  const pedidos = dados.calcular.filter(
+    (p) => p && OPERACOES_CALCULO.has(p.operacao) && typeof p.coluna === 'string' && p.coluna.trim()
+  );
+  return pedidos.length > 0 ? pedidos : null;
 }
