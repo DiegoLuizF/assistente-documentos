@@ -20,6 +20,7 @@ export function mensagensAnalise(contexto, tipo) {
         'Analise o conteúdo abaixo e devolva SOMENTE um JSON válido, sem nenhum texto antes ou depois e sem cercas de código, exatamente neste formato:',
         '{"resumo": "resumo em um parágrafo curto", "topicos": [{"id": "topico-1", "titulo": "título curto do ponto importante", "detalhe": "explicação breve do ponto"}]}',
         'Inclua de 3 a 8 tópicos com as informações mais importantes.',
+        'Escreva como se explicasse o conteúdo a um colega: interprete os números (o que significam, o que se destaca, o que merece atenção) em vez de repetir estatísticas. NÃO cite nomes posicionais como "Coluna 4" ou "linha 12"; quando citar um dado, use o nome real dele (ex.: "Valor Investimento") e diga o que ele indica.',
         'Escreva todo valor numérico no padrão brasileiro: ponto como separador de milhar e vírgula como decimal (ex.: 1.234.567,89). Se o valor for monetário, use o prefixo R$.',
         ...regrasGraficos,
         '',
