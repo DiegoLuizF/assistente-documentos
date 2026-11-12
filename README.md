@@ -12,7 +12,7 @@ Aplicação local que recebe um documento ou planilha e devolve: **resumo**, **i
 | CSV / TSV | Perfil da tabela, como XLSX |
 | TXT / MD | Texto completo |
 
-Para planilhas, além do resumo em tópicos a IA pode gerar **gráficos** (barras, linhas ou pizza, desenhados em SVG puro no navegador) e o chat pode executar **cálculos exatos** (soma, média, mínimo, máximo, contagem, com filtro opcional) sobre as linhas completas — os números são calculados pelo servidor, não pelo modelo.
+Para planilhas, além do resumo em tópicos a IA pode gerar **gráficos** (barras, linhas ou pizza, desenhados em SVG puro no navegador, cada um com uma explicação abaixo) e o chat pode executar **cálculos exatos** (soma, média, mínimo, máximo, contagem, com filtro opcional) sobre as linhas completas — os números são calculados pelo servidor, não pelo modelo. No chat também dá para **pedir gráficos personalizados** (ex.: "faça um gráfico de pizza do estoque por emissor"), e a interface tem **modo claro e escuro** (botão no topo).
 
 ## Estrutura
 
