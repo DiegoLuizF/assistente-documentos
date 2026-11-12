@@ -11,7 +11,7 @@ function calcularSobre(linhas, coluna, operacao, filtro) {
   const valores = [];
   let contagem = 0;
 
-  for (const linha de linhas) {
+  for (const linha of linhas) {
     if (filtro && !mesmoValor(linha[filtro.coluna], filtro.valor)) continue;
     contagem++;
     if (operacao !== 'contar') {
