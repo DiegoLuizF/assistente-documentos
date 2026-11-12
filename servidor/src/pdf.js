@@ -1,11 +1,2 @@
-import { PDFParse } from 'pdf-parse';
-
-export async function extrairTexto(buffer) {
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
-  try {
-    const resultado = await parser.getText();
-    return resultado.text ?? '';
-  } finally {
-    await parser.destroy();
-  }
-}
+// Mantido apenas como apelido: a extração de PDF agora vive em extratores/pdf.js.
+export { extrair as extrairTexto } from './extratores/pdf.js';

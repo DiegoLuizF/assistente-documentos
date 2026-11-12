@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { analisarDocumento, perguntar } from './api.js';
-import UploadPdf from './components/UploadPdf.jsx';
+import UploadArquivo from './components/UploadArquivo.jsx';
 import Carregando from './components/Carregando.jsx';
 import Aviso from './components/Aviso.jsx';
 import Resumo from './components/Resumo.jsx';
 import Topicos from './components/Topicos.jsx';
+import Graficos from './components/Graficos.jsx';
 import Chat from './components/Chat.jsx';
 
 const estadoInicial = {
   resumo: null,
   topicos: [],
+  graficos: [],
   mensagens: [],
   erro: null,
   avisoTruncado: false,
@@ -20,6 +22,11 @@ export default function App() {
   const [carregandoAnalise, setCarregandoAnalise] = useState(false);
   const [carregandoChat, setCarregandoChat] = useState(false);
   const [resultado, setResultado] = useState(estadoInicial);
+  const [tema, setTema] = useState('claro');
+
+  useEffect(() => {
+    document.documentElement.dataset.tema = tema;
+  }, [tema]);
 
   async function selecionarArquivo(novoArquivo) {
     setArquivo(novoArquivo);
@@ -29,7 +36,8 @@ export default function App() {
       const dados = await analisarDocumento(novoArquivo);
       setResultado({
         resumo: dados.resumo,
-        topicos: dados.topicos,
+        topicos: dados.topicos ?? [],
+        graficos: dados.graficos ?? [],
         mensagens: [],
         erro: null,
         avisoTruncado: Boolean(dados.textoTruncado),
@@ -68,7 +76,12 @@ export default function App() {
         ...atual,
         mensagens: [
           ...atual.mensagens,
-          { autor: 'assistente', texto: dados.resposta, provedor: dados.provedor },
+          {
+            autor: 'assistente',
+            texto: dados.resposta,
+            provedor: dados.provedor,
+            graficos: dados.graficos ?? [],
+          },
         ],
         avisoTruncado: atual.avisoTruncado || Boolean(dados.textoTruncado),
       }));
@@ -85,13 +98,24 @@ export default function App() {
   return (
     <main className="pagina">
       <header className="cabecalho">
-        <h1>Assistente de Documentos</h1>
+        <div className="cabecalho-linha">
+          <h1>Assistente de Documentos</h1>
+          <button
+            type="button"
+            className="botao botao-tema"
+            onClick={() => setTema(tema === 'claro' ? 'escuro' : 'claro')}
+            aria-label={tema === 'claro' ? 'Ativar modo escuro' : 'Ativar modo claro'}
+          >
+            {tema === 'claro' ? 'Modo escuro' : 'Modo claro'}
+          </button>
+        </div>
         <p className="subtitulo">
-          Envie um PDF e receba um resumo, os pontos importantes e respostas às suas perguntas.
+          Envie um documento ou planilha e receba um resumo, os pontos importantes, gráficos quando fizer sentido e
+          respostas às suas perguntas.
         </p>
       </header>
 
-      <UploadPdf
+      <UploadArquivo
         aoSelecionar={selecionarArquivo}
         aoTrocar={trocarArquivo}
         carregando={carregandoAnalise}
@@ -112,6 +136,7 @@ export default function App() {
         <>
           <Resumo texto={resultado.resumo} />
           <Topicos topicos={resultado.topicos} />
+          <Graficos graficos={resultado.graficos} />
           <Chat
             mensagens={resultado.mensagens}
             aoEnviar={enviarPergunta}
