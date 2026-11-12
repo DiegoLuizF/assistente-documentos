@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import FonteProvedor from './FonteProvedor.jsx';
 import Carregando from './Carregando.jsx';
+import Grafico from './Grafico.jsx';
 
 export default function Chat({ mensagens, aoEnviar, carregando, desabilitado }) {
   const [pergunta, setPergunta] = useState('');
@@ -24,6 +25,13 @@ export default function Chat({ mensagens, aoEnviar, carregando, desabilitado }) 
         {mensagens.map((mensagem, indice) => (
           <div key={indice} className={`mensagem mensagem-${mensagem.autor}`}>
             <p className={mensagem.falhou ? 'texto-erro' : undefined}>{mensagem.texto}</p>
+            {mensagem.graficos?.length > 0 && (
+              <div className="mensagem-graficos">
+                {mensagem.graficos.map((grafico) => (
+                  <Grafico key={grafico.id} grafico={grafico} />
+                ))}
+              </div>
+            )}
             {mensagem.autor === 'assistente' && !mensagem.falhou && (
               <FonteProvedor provedor={mensagem.provedor} />
             )}
