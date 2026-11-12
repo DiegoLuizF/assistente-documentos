@@ -2,47 +2,46 @@ import { Router } from 'express';
 import multer from 'multer';
 import { TAMANHO_MAX_PDF } from '../config.js';
 import { gerarComFallback } from '../ia.js';
-import { extrairTexto } from '../pdf.js';
-import { hashDoArquivo, prepararTexto } from '../texto.js';
+import { hashDoArquivo, prepararContexto } from '../texto.js';
 import { obterDoCache, guardarNoCache } from '../cache.js';
-import { mensagensAnalise, mensagensPergunta } from '../prompts.js';
-import { transformarAnalise } from '../json.js';
+import { mensagensAnalise, mensagensPergunta, mensagensComResultados } from '../prompts.js';
+import { transformarAnalise, interpretarPedidoCalculo } from '../json.js';
+import { executarCalculos } from '../calculo.js';
+import { extrairContexto, FORMATOS_ACEITOS, MIMES_ACEITOS } from '../extratores/index.js';
 import { erroAmigavel, ErroAmigavel } from '../erros.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: TAMANHO_MAX_PDF },
-  fileFilter: (req, arquivo, cb) => {
-    if (arquivo.mimetype !== 'application/pdf') {
-      cb(erroAmigavel('Envie um arquivo PDF válido.'));
-      return;
-    }
-    cb(null, true);
-  },
 });
 
-function recibirPdf(req) {
+function validarArquivo(req) {
   const arquivo = req.file;
   if (!arquivo) {
-    throw erroAmigavel('Envie um arquivo PDF.');
+    throw erroAmigavel('Envie um documento para analisar.');
   }
-  const assinatura = arquivo.buffer.subarray(0, 5).toString('latin1');
-  if (assinatura !== '%PDF-') {
-    throw erroAmigavel('O arquivo enviado não é um PDF válido.');
+  if (arquivo.mimetype !== 'application/octet-stream' && !MIMES_ACEITOS.has(arquivo.mimetype)) {
+    throw erroAmigavel(`Tipo de arquivo não suportado. Formatos aceitos: ${FORMATOS_ACEITOS.join(', ')}.`);
   }
-  return arquivo.buffer;
+  return arquivo;
 }
 
-// Extração com cache: evita reprocessar o mesmo PDF a cada pergunta do chat.
-async function obterTexto(buffer) {
+// Extração com cache: evita reprocessar o mesmo arquivo a cada pergunta do chat.
+async function obterContexto(nomeArquivo, buffer) {
   const chave = hashDoArquivo(buffer);
   const emCache = obterDoCache(chave);
   if (emCache) return emCache;
 
-  const textoBruto = await extrairTexto(buffer);
-  const preparado = prepararTexto(textoBruto);
-  guardarNoCache(chave, preparado);
-  return preparado;
+  const extraido = await extrairContexto(nomeArquivo, buffer);
+  const preparado = prepararContexto(extraido.contexto);
+  const resultado = {
+    tipo: extraido.tipo,
+    contexto: preparado.contexto,
+    truncado: preparado.truncado,
+    tabelas: extraido.tabelas,
+  };
+  guardarNoCache(chave, resultado);
+  return resultado;
 }
 
 function lerHistorico(req) {
@@ -66,33 +65,45 @@ function lerHistorico(req) {
 
 export const router = Router();
 
-router.post('/analise', upload.single('pdf'), async (req, res, next) => {
+router.post('/analise', upload.single('arquivo'), async (req, res, next) => {
   try {
-    const buffer = recibirPdf(req);
-    const { texto, truncado } = await obterTexto(buffer);
+    const arquivo = validarArquivo(req);
+    const { tipo, contexto, truncado } = await obterContexto(arquivo.originalname, arquivo.buffer);
 
-    const { resultado, provedor } = await gerarComFallback(mensagensAnalise(texto), transformarAnalise);
+    const { resultado, provedor } = await gerarComFallback(mensagensAnalise(contexto, tipo), transformarAnalise);
 
-    res.json({ ...resultado, provedor, textoTruncado: truncado });
+    res.json({ tipo, ...resultado, provedor, textoTruncado: truncado });
   } catch (erro) {
     next(erro);
   }
 });
 
-router.post('/pergunta', upload.single('pdf'), async (req, res, next) => {
+router.post('/pergunta', upload.single('arquivo'), async (req, res, next) => {
   try {
-    const buffer = recibirPdf(req);
+    const arquivo = validarArquivo(req);
     const pergunta = (req.body.pergunta ?? '').trim();
     if (!pergunta) {
       throw erroAmigavel('Escreva uma pergunta antes de enviar.');
     }
 
-    const { texto, truncado } = await obterTexto(buffer);
+    const { tipo, contexto, truncado, tabelas } = await obterContexto(arquivo.originalname, arquivo.buffer);
     const historico = lerHistorico(req);
+    const mensagens = mensagensPergunta(contexto, pergunta, historico, tipo);
 
-    const { resultado, provedor } = await gerarComFallback(mensagensPergunta(texto, pergunta, historico));
+    const primeira = await gerarComFallback(mensagens);
 
-    res.json({ resposta: resultado, provedor, textoTruncado: truncado });
+    // Para dados tabulares, o modelo pode pedir cálculos exatos sobre as linhas
+    // completas; o servidor calcula e chama o modelo mais uma vez.
+    const pedidos = tipo === 'tabular' && tabelas ? interpretarPedidoCalculo(primeira.resultado) : null;
+    if (!pedidos) {
+      res.json({ resposta: primeira.resultado, provedor: primeira.provedor, textoTruncado: truncado });
+      return;
+    }
+
+    const resultados = executarCalculos(tabelas, pedidos);
+    const segunda = await gerarComFallback(mensagensComResultados(mensagens, primeira.resultado, resultados));
+
+    res.json({ resposta: segunda.resultado, provedor: segunda.provedor, textoTruncado: truncado });
   } catch (erro) {
     next(erro);
   }
@@ -106,7 +117,7 @@ export function tratarErros(erro, req, res, next) {
   if (erro instanceof multer.MulterError) {
     const mensagem =
       erro.code === 'LIMIT_FILE_SIZE'
-        ? 'O PDF é maior que 15 MB. Envie um arquivo menor.'
+        ? 'O arquivo é maior que 15 MB. Envie um arquivo menor.'
         : 'Não foi possível receber o arquivo. Tente novamente.';
     res.status(400).json({ erro: mensagem });
     return;
