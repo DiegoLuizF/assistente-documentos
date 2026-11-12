@@ -48,10 +48,13 @@ export default function App() {
 
   async function enviarPergunta(pergunta) {
     const mensagensAtuais = resultado.mensagens;
-    const historico = mensagensAtuais.map((m) => ({
-      papel: m.autor === 'voce' ? 'usuario' : 'assistente',
-      conteudo: m.texto,
-    }));
+    // Mensagens de erro não vão ao histórico: reforçariam o padrão de "não encontrei".
+    const historico = mensagensAtuais
+      .filter((m) => !m.falhou)
+      .map((m) => ({
+        papel: m.autor === 'voce' ? 'usuario' : 'assistente',
+        conteudo: m.texto,
+      }));
 
     setCarregandoChat(true);
     setResultado((atual) => ({
