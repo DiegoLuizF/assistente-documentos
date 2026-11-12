@@ -1,6 +1,7 @@
 const CORES = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#be185d', '#4d7c0f'];
 
-const formatador = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+// Rótulos compactos ("27,1 bi") para não estourar a área do SVG com moedas longas.
+const compacto = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 });
 
 function truncar(texto, maximo) {
   return texto.length > maximo ? `${texto.slice(0, maximo - 1)}…` : texto;
@@ -19,8 +20,8 @@ function Barras({ dados }) {
               {truncar(d.rotulo, 14)}
             </text>
             <rect x="120" y={y} width={largura} height="18" rx="3" fill={CORES[i % CORES.length]} />
-            <text x={366 + largura} y={y + 14} fontSize="12" fill="currentColor">
-              {formatador.format(d.valor)}
+            <text x={126 + largura} y={y + 14} fontSize="12" fill="currentColor">
+              {compacto.format(d.valor)}
             </text>
           </g>
         );
@@ -51,14 +52,14 @@ function Linhas({ dados }) {
 
   return (
     <svg viewBox={`0 0 ${largura} ${altura}`} role="img" className="grafico-svg">
-      <text x="4" y={margem + 4} fontSize="11" fill="currentColor">{formatador.format(max)}</text>
-      <text x="4" y={altura - margem + 4} fontSize="11" fill="currentColor">{formatador.format(min)}</text>
+      <text x="4" y={margem + 4} fontSize="11" fill="currentColor">{compacto.format(max)}</text>
+      <text x="4" y={altura - margem + 4} fontSize="11" fill="currentColor">{compacto.format(min)}</text>
       <polyline points={caminho} fill="none" stroke={CORES[0]} strokeWidth="2.5" />
       {pontos.map((p, i) => (
         <g key={i}>
           <circle cx={p.x} cy={p.y} r="4" fill={CORES[0]} />
           <text x={xRotulado(i)} y={p.y - 10} fontSize="11" textAnchor={ancora(i)} fill="currentColor">
-            {formatador.format(dados[i].valor)}
+            {compacto.format(dados[i].valor)}
           </text>
           <text x={xRotulado(i)} y={altura - 8} fontSize="10" textAnchor={ancora(i)} fill="currentColor">
             {truncar(dados[i].rotulo, 10)}
