@@ -5,7 +5,7 @@ import { gerarComFallback } from '../ia.js';
 import { hashDoArquivo, prepararContexto } from '../texto.js';
 import { obterDoCache, guardarNoCache } from '../cache.js';
 import { mensagensAnalise, mensagensPergunta, mensagensComResultados } from '../prompts.js';
-import { transformarAnalise, interpretarPedidoCalculo } from '../json.js';
+import { transformarAnalise, interpretarRespostaChat } from '../json.js';
 import { executarCalculos } from '../calculo.js';
 import { extrairContexto, FORMATOS_ACEITOS, MIMES_ACEITOS } from '../extratores/index.js';
 import { erroAmigavel, ErroAmigavel } from '../erros.js';
@@ -92,16 +92,45 @@ router.post('/pergunta', upload.single('arquivo'), async (req, res, next) => {
 
     const primeira = await gerarComFallback(mensagens);
 
-    // Para dados tabulares, o modelo pode pedir cálculos exatos sobre as linhas
-    // completas; o servidor calcula e chama o modelo mais uma vez.
-    const pedidos = tipo === 'tabular' && tabelas ? interpretarPedidoCalculo(primeira.resultado) : null;
-    if (!pedidos) {
-      res.json({ resposta: primeira.resultado, provedor: primeira.provedor, textoTruncado: truncado });
+    // Para dados tabulares, a primeira resposta pode ser um pedido de cálculo
+    // (o servidor calcula sobre as linhas completas) ou um pedido de gráfico
+    // (validado e devolvido com a resposta); texto puro segue direto.
+    const interpretacao = tipo === 'tabular' && tabelas ? interpretarRespostaChat(primeira.resultado) : null;
+
+    if (!interpretacao || interpretacao.tipo === 'texto') {
+      const resposta = interpretacao?.resposta ?? primeira.resultado;
+      res.json({ resposta, provedor: primeira.provedor, textoTruncado: truncado });
       return;
     }
 
-    const resultados = executarCalculos(tabelas, pedidos);
+    if (interpretacao.tipo === 'graficos') {
+      res.json({
+        resposta: interpretacao.resposta,
+        graficos: interpretacao.graficos,
+        provedor: primeira.provedor,
+        textoTruncado: truncado,
+      });
+      return;
+    }
+
+    const resultados = executarCalculos(tabelas, interpretacao.pedidos);
     const segunda = await gerarComFallback(mensagensComResultados(mensagens, primeira.resultado, resultados));
+
+    // A resposta final pode aproveitar para vir acompanhada de gráficos.
+    const interpretacao2 = interpretarRespostaChat(segunda.resultado);
+    if (interpretacao2?.tipo === 'texto') {
+      res.json({ resposta: interpretacao2.resposta, provedor: segunda.provedor, textoTruncado: truncado });
+      return;
+    }
+    if (interpretacao2?.tipo === 'graficos') {
+      res.json({
+        resposta: interpretacao2.resposta,
+        graficos: interpretacao2.graficos,
+        provedor: segunda.provedor,
+        textoTruncado: truncado,
+      });
+      return;
+    }
 
     res.json({ resposta: segunda.resultado, provedor: segunda.provedor, textoTruncado: truncado });
   } catch (erro) {
